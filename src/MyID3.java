@@ -5,7 +5,14 @@ import weka.core.Instances;
 import weka.classifiers.AbstractClassifier;
 import weka.core.Capabilities.Capability;
 
+import java.util.Enumeration;
+
 public class MyID3 extends AbstractClassifier {
+
+    /**
+     * EPSILON untuk menunjukkan dua double bernilai sama
+     */
+    private static final double EPSILON = 1e-6;
 
     @Override
     public void buildClassifier(Instances instances) throws Exception {
@@ -63,4 +70,28 @@ public class MyID3 extends AbstractClassifier {
     public double log2(double x) {
         return Math.log(x) / Math.log(2);
     }
+
+    public boolean equals(double a, double b) {
+        return (a - b < EPSILON) && (b - a < EPSILON);
+    }
+
+    private double hitungEntropi(Instances data) throws Exception {
+        double entropi = 0;
+        double[] totalAtributKelas = new double[data.numClasses()];
+        Enumeration cacahInst = data.enumerateInstances();
+        while (cacahInst.hasMoreElements()) {
+            Instance in = (Instance) cacahInst.nextElement();
+            totalAtributKelas[(int) in.classValue()]++;
+        }
+
+        for (int i = 0; i < data.numClasses(); i++) {
+            if (totalAtributKelas[i] > 0) {
+                double peluang = totalAtributKelas[i] / data.numInstances();
+                entropi -= peluang * log2(peluang);
+            }
+        }
+
+        return entropi;
+    }
+
 }
