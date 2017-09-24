@@ -1,4 +1,5 @@
 import weka.classifiers.Classifier;
+import weka.core.Attribute;
 import weka.core.Capabilities;
 import weka.core.Instance;
 import weka.core.Instances;
@@ -13,6 +14,11 @@ public class MyID3 extends AbstractClassifier {
      * EPSILON untuk menunjukkan dua double bernilai sama
      */
     private static final double EPSILON = 1e-6;
+    private MyID3[] akar;
+    private Attribute atribut;
+    private double kelas;
+    private double[] persebaranKelas;
+    private Attribute atributKelas;
 
     @Override
     public void buildClassifier(Instances instances) throws Exception {
@@ -57,8 +63,43 @@ public class MyID3 extends AbstractClassifier {
      * @param instances examples dari data
      * @throws Exception
      */
-    public void makeTree(Instances instances) throws Exception {
+    public void makeTree(Instances data) throws Exception {
+        //periksa jika example kosong
+        if (data.numInstances() == 0) {
+            atribut = null;
+            kelas = Double.NaN;
+            persebaranKelas = new double[data.numClasses()];
+            return;
+        }
 
+        //cek info gain tertinggi kemudian dipilih sebagai akar
+        double[] gains = new double[data.numAttributes()];
+        Enumeration cacahAtribut = data.enumerateAttributes();
+        while (cacahAtribut.hasMoreElements()) {
+            Attribute a = (Attribute) cacahAtribut.nextElement();
+            gains[a.index()] = hitungInfoGain(data, a);
+        }
+        atribut = data.attribute(indeksMaksimum(gains));
+
+        if (equals(gains[atribut.index()], 0)) {
+            atribut = null;
+            persebaranKelas = new double[data.numClasses()];
+            Enumeration cacahInstance = data.enumerateInstances();
+            while (cacahInstance.hasMoreElements()) {
+                Instance in = (Instance) cacahInstance.nextElement();
+                persebaranKelas[(int) in.classValue()]++;
+            }
+            normalisasi(persebaranKelas);
+            kelas = indeksMaksimum(persebaranKelas);
+            atributKelas = data.classAttribute();
+        } else {
+            Instances[] split = pisahData(data, atribut);
+            akar = new MyID3[atribut.numValues()];
+            for (int i = 0; i < atribut.numValues(); i++) {
+                akar[i] = new MyID3();
+                akar[i].makeTree(split[i]);
+            }
+        }
     }
 
     /**
@@ -94,4 +135,59 @@ public class MyID3 extends AbstractClassifier {
         return entropi;
     }
 
+    private double hitungInfoGain(Instances data, Attribute a) throws Exception {
+        double infoGain = hitungEntropi(data);
+        Instances[] split = pisahData(data, a);
+
+        for (int i = 0; i < a.numValues(); i++) {
+            if (split[i].numInstances() > 0) {
+                infoGain -= ((double) split[i].numInstances() / (double) data.numInstances()) * hitungEntropi(split[i]);
+            }
+        }
+        return infoGain;
+    }
+
+    private int indeksMaksimum(double[] array) {
+        double max = array[0];
+        int idx = 0;
+
+        for (int i = 1; i < array.length; i++) {
+            if (array[i] > max) {
+                idx = i;
+                max = array[i];
+            }
+        }
+
+        return idx;
+    }
+
+    private Instances[] pisahData(Instances data, Attribute a) {
+        Instances[] split = new Instances[a.numValues()];
+        for (int i = 0; i < a.numValues(); i++) {
+            split[i] = new Instances(data, data.numInstances());
+        }
+
+        Enumeration cacahInstance = data.enumerateAttributes();
+        while (cacahInstance.hasMoreElements()) {
+            Instance in = (Instance) cacahInstance.nextElement();
+            split[(int) in.value(a)].add(in);
+        }
+
+        for (int i = 0; i < split.length; i++) {
+            split[i].compactify();
+        }
+
+        return split;
+    }
+
+    private void normalisasi(double[] ds) {
+        double sum = 0;
+        for (double d : ds) {
+            sum += d;
+        }
+
+        for (int i = 0; i < ds.length; i++) {
+            ds[i] /= sum;
+        }
+    }
 }
