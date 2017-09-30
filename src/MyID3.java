@@ -60,7 +60,7 @@ public class MyID3 extends AbstractClassifier {
     /**
      * Method yang berfungsi untuk membangkitkan pohon
      *
-     * @param instances examples dari data
+     * @param data examples dari data
      * @throws Exception
      */
     public void makeTree(Instances data) throws Exception {
