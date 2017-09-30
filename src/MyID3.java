@@ -11,13 +11,13 @@ import java.lang.reflect.Array;
 import java.util.*;
 
 public class MyID3 extends AbstractClassifier {
-    static final double EPSILON = 1e-6;
-    MyID3[] nodes;
-    double[] information_gains;
-    double[] classDistribution;
-    double classValue;
-    Attribute attribute;
-    Attribute classAttribute;
+    private static final double EPSILON = 1e-6;
+    private MyID3[] nodes;
+    private double[] information_gains;
+    private double[] classDistribution;
+    private double classValue;
+    private Attribute attribute;
+    private Attribute classAttribute;
 
     @Override
     public void buildClassifier(Instances instances) throws Exception {
@@ -26,7 +26,8 @@ public class MyID3 extends AbstractClassifier {
         instances = new Instances(instances);
         instances.deleteWithMissingClass();
 
-        makeTree(instances);
+//        makeTreeOld(instances);
+        makeTree(instances, instances.numClasses());
     }
 
     @Override
@@ -77,7 +78,7 @@ public class MyID3 extends AbstractClassifier {
         return Math.log(value) / Math.log(2);
     }
 
-    private boolean isEqual(double a, double b) {
+    private boolean isEqual(double a, double b) throws Exception {
         return (a - b < EPSILON) && (b - a < EPSILON);
     }
 
@@ -94,7 +95,7 @@ public class MyID3 extends AbstractClassifier {
             splits[((int) in.value(att))].add(in);
         }
 
-        for (int i = 0; i < splits.length; ++i) {
+        for(int i = 0; i < splits.length; ++i) {
             splits[i].compactify();
         }
 
@@ -155,12 +156,70 @@ public class MyID3 extends AbstractClassifier {
             sum += d;
         }
 
-        for (int i = 0; i < ds.length; i++) {
+        for (int i = 0; i < ds.length; ++i) {
             ds[i] /= sum;
         }
     }
 
-    private void makeTree(Instances data) throws Exception {
+    private double[] getClassDistribution(Instances data) throws Exception{
+        double [] result = new double[data.numClasses()];
+
+        Enumeration<Instance> enumInst = data.enumerateInstances();
+        while (enumInst.hasMoreElements()) {
+            Instance in = enumInst.nextElement();
+            result[((int) in.classValue())]++;
+        }
+
+        return result;
+    }
+
+    private boolean areAllExamplesHaveSameClassValue(double[] ds) throws Exception {
+        int zero = 0;
+
+        for (double d : ds) {
+            if (d == 0) {
+                ++zero;
+            }
+        }
+
+        return (zero == ds.length-1);
+    }
+
+    private void makeTree(Instances data, int countAtt) throws Exception {
+        attribute = null;
+        classDistribution = getClassDistribution(data);
+
+        if ((countAtt == 0) || (areAllExamplesHaveSameClassValue(classDistribution))) {
+            normalize(classDistribution);
+            classValue = getMaxIndex(classDistribution);
+            classAttribute = data.classAttribute();
+        } else {
+            information_gains = new double[data.numAttributes()];
+            Enumeration<Attribute> enumAttribute = data.enumerateAttributes();
+            while (enumAttribute.hasMoreElements()) {
+                Attribute att = enumAttribute.nextElement();
+                information_gains[att.index()] = getInformationGain(data, att);
+            }
+            attribute = data.attribute(getMaxIndex(information_gains));
+
+            Instances[] splits = getSplittedData(data, attribute);
+            nodes = new MyID3[attribute.numValues()];
+            for (int i = 0; i < attribute.numValues(); ++i) {
+                nodes[i] = new MyID3();
+                if (splits[i].isEmpty()) {
+                    nodes[i].attribute = null;
+                    nodes[i].classDistribution = classDistribution;
+                    nodes[i].normalize(nodes[i].classDistribution);
+                    nodes[i].classValue = getMaxIndex(nodes[i].classDistribution);
+                    nodes[i].classAttribute = data.classAttribute();
+                } else {
+                    nodes[i].makeTree(splits[i], countAtt-1);
+                }
+            }
+        }
+    }
+
+    private void makeTreeOld(Instances data) throws Exception {
         information_gains = new double[data.numAttributes()];
         Enumeration<Attribute> enumAttribute = data.enumerateAttributes();
         while (enumAttribute.hasMoreElements()) {
@@ -171,13 +230,7 @@ public class MyID3 extends AbstractClassifier {
 
         if (isEqual(information_gains[attribute.index()], 0.0)) {
             attribute = null;
-            classDistribution = new double[data.numClasses()];
-
-            Enumeration<Instance> enumInst = data.enumerateInstances();
-            while (enumInst.hasMoreElements()) {
-                Instance in = enumInst.nextElement();
-                classDistribution[((int) in.classValue())]++;
-            }
+            classDistribution = getClassDistribution(data);
 
             normalize(classDistribution);
             classValue = getMaxIndex(classDistribution);
@@ -187,22 +240,15 @@ public class MyID3 extends AbstractClassifier {
             nodes = new MyID3[attribute.numValues()];
             for (int i = 0; i < attribute.numValues(); ++i) {
                 nodes[i] = new MyID3();
-                nodes[i].makeTree(splits[i]);
                 if (splits[i].isEmpty()) {
                     nodes[i].attribute = null;
-                    nodes[i].classDistribution = new double[data.numClasses()];
-
-                    Enumeration<Instance> enumInst = data.enumerateInstances();
-                    while (enumInst.hasMoreElements()) {
-                        Instance in = enumInst.nextElement();
-                        nodes[i].classDistribution[((int) in.classValue())]++;
-                    }
+                    nodes[i].classDistribution = getClassDistribution(data);
 
                     nodes[i].normalize(nodes[i].classDistribution);
                     nodes[i].classValue = getMaxIndex(nodes[i].classDistribution);
                     nodes[i].classAttribute = data.classAttribute();
                 } else {
-                    nodes[i].makeTree(splits[i]);
+                    nodes[i].makeTreeOld(splits[i]);
                 }
             }
         }
