@@ -92,10 +92,11 @@ public class MainClass {
     public static void main(String[] args) throws Exception {
 
         MyID3 ID3 = new MyID3();
-        MyC45 C45;
+        MyC45 C45 = new MyC45();
         j48 = new J48();
 //        Classifier cls = j48;
-        Classifier cls = ID3;
+//        Classifier cls = ID3;
+        Classifier cls = C45;
         preprocessFile("weather.nominal.arff");
         crossValidation(cls, 10);
 

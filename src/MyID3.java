@@ -7,7 +7,6 @@ import weka.core.Instances;
 import weka.classifiers.AbstractClassifier;
 import weka.core.Capabilities.Capability;
 
-import java.lang.reflect.Array;
 import java.util.*;
 
 public class MyID3 extends AbstractClassifier {
@@ -27,7 +26,7 @@ public class MyID3 extends AbstractClassifier {
         instances.deleteWithMissingClass();
 
 //        makeTreeOld(instances);
-        makeTree(instances, instances.numClasses());
+        makeTree(instances, instances.numAttributes());
     }
 
     @Override
@@ -174,15 +173,18 @@ public class MyID3 extends AbstractClassifier {
     }
 
     private boolean areAllExamplesHaveSameClassValue(double[] ds) throws Exception {
-        int zero = 0;
+        double sum = 0;
+        for (double d : ds) {
+            sum += d;
+        }
 
         for (double d : ds) {
-            if (d == 0) {
-                ++zero;
+            if (d == sum) {
+                return true;
             }
         }
 
-        return (zero == ds.length-1);
+        return false;
     }
 
     private void makeTree(Instances data, int countAtt) throws Exception {
