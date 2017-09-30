@@ -72,6 +72,7 @@ public class MyID3 extends AbstractClassifier {
             return;
         }
 
+
         //cek info gain tertinggi kemudian dipilih sebagai akar
         double[] gains = new double[data.numAttributes()];
         Enumeration cacahAtribut = data.enumerateAttributes();
