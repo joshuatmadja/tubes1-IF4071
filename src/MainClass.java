@@ -77,6 +77,7 @@ public class MainClass {
     public static void preprocessFile(String fileName) throws Exception {
         Instances data = readFile(fileName);
         Instances filteredData = filterResample(data);
+        train = filteredData;
     }
 
     public static void saveModel(Classifier cls, String filename) throws Exception{
@@ -95,7 +96,7 @@ public class MainClass {
         j48 = new J48();
         Classifier cls = j48;
 
-        preprocessFile("../weather.nominal.arff");
+        preprocessFile("weather.nominal.arff");
         crossValidation(cls, 10);
 
     }
