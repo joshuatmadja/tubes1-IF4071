@@ -91,11 +91,11 @@ public class MainClass {
 
     public static void main(String[] args) throws Exception {
 
-        MyID31 ID3 = new MyID31();
+        MyID3 ID3 = new MyID3();
         MyC45 C45;
         j48 = new J48();
-        Classifier cls = j48;
-//        Classifier cls = ID3;
+//        Classifier cls = j48;
+        Classifier cls = ID3;
         preprocessFile("weather.nominal.arff");
         crossValidation(cls, 10);
 

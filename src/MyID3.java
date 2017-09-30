@@ -11,18 +11,13 @@ import java.lang.reflect.Array;
 import java.util.*;
 
 public class MyID3 extends AbstractClassifier {
-
-    /**
-     * EPSILON untuk menunjukkan dua double bernilai sama
-     */
-    private static final double EPSILON = 1e-6;
-    private MyID3[] akar;
-    private Attribute atribut;
-    private double kelas;
-    private double[] persebaranKelas;
-    private Attribute atributKelas;
-
-    private HashMap<String, MyID3> trees;
+    static final double EPSILON = 1e-6;
+    MyID3[] nodes;
+    double[] information_gains;
+    double[] classDistribution;
+    double classValue;
+    Attribute attribute;
+    Attribute classAttribute;
 
     @Override
     public void buildClassifier(Instances instances) throws Exception {
@@ -31,102 +26,185 @@ public class MyID3 extends AbstractClassifier {
         instances = new Instances(instances);
         instances.deleteWithMissingClass();
 
-//        makeTree(instances);
+        makeTree(instances);
     }
 
     @Override
     public double classifyInstance(Instance instance) throws Exception {
-        return 0;
+        if (instance.hasMissingValue()) {
+
+        }
+
+        if (attribute == null) {
+            return classValue;
+        } else {
+            return nodes[(int) instance.value(attribute)].classifyInstance(instance);
+        }
     }
 
     @Override
     public double[] distributionForInstance(Instance instance) throws Exception {
-        return new double[0];
+        if (instance.hasMissingValue()) {
+
+        }
+
+        if (attribute == null) {
+            return classDistribution;
+        } else {
+            return nodes[(int) instance.value(attribute)].distributionForInstance(instance);
+        }
     }
 
     @Override
     public Capabilities getCapabilities() {
-        Capabilities initialCapabilities = super.getCapabilities();
-        initialCapabilities.disableAll();
+        Capabilities result = super.getCapabilities();
+        result.disableAll();
 
-        //untuk atribut
-        initialCapabilities.enable(Capability.NOMINAL_ATTRIBUTES);
+        // attributes
+        result.enable(Capability.NOMINAL_ATTRIBUTES);
 
-        //untuk kelas
-        initialCapabilities.enable(Capability.NOMINAL_CLASS);
-        initialCapabilities.enable(Capability.MISSING_CLASS_VALUES);
+        // class
+        result.enable(Capability.NOMINAL_CLASS);
+        result.enable(Capability.MISSING_CLASS_VALUES);
 
-        initialCapabilities.setMinimumNumberInstances(0);
+        // instances
+        result.setMinimumNumberInstances(0);
 
-        return initialCapabilities;
+        return result;
     }
 
-    public void makeTree(Instances data) throws Exception {
-
+    private double log2(double value) throws Exception {
+        return Math.log(value) / Math.log(2);
     }
 
-    public double log2(double x) {
-        return Math.log(x) / Math.log(2);
+    private boolean isEqual(double a, double b) {
+        return (a - b < EPSILON) && (b - a < EPSILON);
     }
 
-    private double x(Instances data) throws Exception {
+    private Instances[] getSplittedData(Instances data, Attribute att) throws Exception {
+        Instances[] splits = new Instances[att.numValues()];
+
+        for (int i = 0; i < att.numValues(); ++i) {
+            splits[i] = new Instances(data, data.numInstances());
+        }
+
+        Enumeration<Instance> enumInst = data.enumerateInstances();
+        while (enumInst.hasMoreElements()) {
+            Instance in = enumInst.nextElement();
+            splits[((int) in.value(att))].add(in);
+        }
+
+        for (int i = 0; i < splits.length; ++i) {
+            splits[i].compactify();
+        }
+
+        return splits;
+    }
+
+
+    private double getEntropy(Instances data) throws Exception {
         double entropy = 0.0;
-        HashMap<String, Integer> totalClassAttributes = new HashMap<>();
+        double[] countClassValues = new double[data.numClasses()];
+
+        Enumeration<Instance> enumInst = data.enumerateInstances();
+        while (enumInst.hasMoreElements()) {
+            Instance in = enumInst.nextElement();
+            countClassValues[((int) in.classValue())]++;
+        }
 
         for (int i = 0; i < data.numClasses(); ++i) {
-//            totalClassAttributes.put(data.attribute("2" , 0)
-        }
-
-        return entropy;
-    }
-
-    private double calculateEntropy(Instances data) throws Exception {
-        double entropy = 0.0;
-        double[] totalClassAttributes = new double[data.numClasses()];
-
-        for (int i = 0; i < totalClassAttributes.length; ++i) {
-            totalClassAttributes[i] = 0.0;
-        }
-
-        Enumeration enumInstance = data.enumerateInstances();
-        while (enumInstance.hasMoreElements()) {
-            Instance in = (Instance) enumInstance.nextElement();
-            totalClassAttributes[(int) in.classValue()]++;
-        }
-
-        for (int i = 0; i < data.numClasses(); ++i) {
-            if (totalClassAttributes[i] > 0) {
-                double prob = totalClassAttributes[i] / data.numInstances();
-                entropy -= prob * log2(prob);
+            if (countClassValues[i] > 0) {
+                double probability = countClassValues[i]/data.numInstances();
+                entropy -= probability * log2(probability);
             }
         }
 
         return entropy;
     }
 
-    private double calculateInfoGain(Instances data, Attribute att) throws Exception {
-        double info_gain = calculateEntropy(data);
-        Instances[] split = seperateData(data, att);
+    private double getInformationGain(Instances data, Attribute att) throws Exception {
+        double information_gain = getEntropy(data);
+        Instances[] splits = getSplittedData(data, att);
 
-        for (int i = 0; i < split.length; ++i) {
-            if (split[i].numInstances() > 0) {
-                info_gain -= ((double) split[i].numInstances() / (double) data.numInstances()) * calculateEntropy(split[i]);
+        for (Instances split: splits) {
+            if (split.numInstances() > 0) {
+                information_gain -= ((double) split.numInstances() / (double) data.numInstances()) * getEntropy(split);
             }
         }
 
-        return info_gain;
+        return information_gain;
     }
 
-    private Instances[] seperateData(Instances data, Attribute att) throws Exception {
-        Instances[] split = new Instances[att.numValues()];
+    private int getMaxIndex(double[] array) throws Exception {
+        double max = array[0];
+        int idx = 0;
 
-        Enumeration enumAttribute = data.enumerateAttributes();
+        for (int i = 1; i < array.length; ++i) {
+            if (array[i] > max) {
+                idx = i;
+                max = array[i];
+            }
+        }
+
+        return idx;
+    }
+
+    private void normalize(double[] ds) {
+        double sum = 0;
+        for (double d : ds) {
+            sum += d;
+        }
+
+        for (int i = 0; i < ds.length; i++) {
+            ds[i] /= sum;
+        }
+    }
+
+    private void makeTree(Instances data) throws Exception {
+        information_gains = new double[data.numAttributes()];
+        Enumeration<Attribute> enumAttribute = data.enumerateAttributes();
         while (enumAttribute.hasMoreElements()) {
-            Attribute att_1 = (Attribute) enumAttribute.nextElement();
-//            split.get((int) att_1.value())
+            Attribute att = enumAttribute.nextElement();
+            information_gains[att.index()] = getInformationGain(data, att);
         }
+        attribute = data.attribute(getMaxIndex(information_gains));
 
-        return split;
+        if (isEqual(information_gains[attribute.index()], 0.0)) {
+            attribute = null;
+            classDistribution = new double[data.numClasses()];
+
+            Enumeration<Instance> enumInst = data.enumerateInstances();
+            while (enumInst.hasMoreElements()) {
+                Instance in = enumInst.nextElement();
+                classDistribution[((int) in.classValue())]++;
+            }
+
+            normalize(classDistribution);
+            classValue = getMaxIndex(classDistribution);
+            classAttribute = data.classAttribute();
+        } else {
+            Instances[] splits = getSplittedData(data, attribute);
+            nodes = new MyID3[attribute.numValues()];
+            for (int i = 0; i < attribute.numValues(); ++i) {
+                nodes[i] = new MyID3();
+                nodes[i].makeTree(splits[i]);
+                if (splits[i].isEmpty()) {
+                    nodes[i].attribute = null;
+                    nodes[i].classDistribution = new double[data.numClasses()];
+
+                    Enumeration<Instance> enumInst = data.enumerateInstances();
+                    while (enumInst.hasMoreElements()) {
+                        Instance in = enumInst.nextElement();
+                        nodes[i].classDistribution[((int) in.classValue())]++;
+                    }
+
+                    nodes[i].normalize(nodes[i].classDistribution);
+                    nodes[i].classValue = getMaxIndex(nodes[i].classDistribution);
+                    nodes[i].classAttribute = data.classAttribute();
+                } else {
+                    nodes[i].makeTree(splits[i]);
+                }
+            }
+        }
     }
-
 }
