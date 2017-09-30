@@ -57,6 +57,7 @@ public class MyID3 extends AbstractClassifier {
         return initialCapabilities;
     }
 
+
     /**
      * Method yang berfungsi untuk membangkitkan pohon
      *
