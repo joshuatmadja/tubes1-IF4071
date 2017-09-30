@@ -1,3 +1,4 @@
+import org.w3c.dom.Attr;
 import weka.classifiers.Classifier;
 import weka.core.Attribute;
 import weka.core.Capabilities;
@@ -6,7 +7,8 @@ import weka.core.Instances;
 import weka.classifiers.AbstractClassifier;
 import weka.core.Capabilities.Capability;
 
-import java.util.Enumeration;
+import java.lang.reflect.Array;
+import java.util.*;
 
 public class MyID3 extends AbstractClassifier {
 
@@ -20,6 +22,8 @@ public class MyID3 extends AbstractClassifier {
     private double[] persebaranKelas;
     private Attribute atributKelas;
 
+    private HashMap<String, MyID3> trees;
+
     @Override
     public void buildClassifier(Instances instances) throws Exception {
         getCapabilities().testWithFail(instances);
@@ -27,7 +31,7 @@ public class MyID3 extends AbstractClassifier {
         instances = new Instances(instances);
         instances.deleteWithMissingClass();
 
-        makeTree(instances);
+//        makeTree(instances);
     }
 
     @Override
@@ -57,139 +61,72 @@ public class MyID3 extends AbstractClassifier {
         return initialCapabilities;
     }
 
-
-    /**
-     * Method yang berfungsi untuk membangkitkan pohon
-     *
-     * @param data examples dari data
-     * @throws Exception
-     */
     public void makeTree(Instances data) throws Exception {
-        //periksa jika example kosong
-        if (data.numInstances() == 0) {
-            atribut = null;
-            kelas = Double.NaN;
-            persebaranKelas = new double[data.numClasses()];
-            return;
-        }
 
-
-        //cek info gain tertinggi kemudian dipilih sebagai akar
-        double[] gains = new double[data.numAttributes()];
-        Enumeration cacahAtribut = data.enumerateAttributes();
-        while (cacahAtribut.hasMoreElements()) {
-            Attribute a = (Attribute) cacahAtribut.nextElement();
-            gains[a.index()] = hitungInfoGain(data, a);
-        }
-        atribut = data.attribute(indeksMaksimum(gains));
-
-        if (equals(gains[atribut.index()], 0)) {
-            atribut = null;
-            persebaranKelas = new double[data.numClasses()];
-            Enumeration cacahInstance = data.enumerateInstances();
-            while (cacahInstance.hasMoreElements()) {
-                Instance in = (Instance) cacahInstance.nextElement();
-                persebaranKelas[(int) in.classValue()]++;
-            }
-            normalisasi(persebaranKelas);
-            kelas = indeksMaksimum(persebaranKelas);
-            atributKelas = data.classAttribute();
-        } else {
-            Instances[] split = pisahData(data, atribut);
-            akar = new MyID3[atribut.numValues()];
-            for (int i = 0; i < atribut.numValues(); i++) {
-                akar[i] = new MyID3();
-                akar[i].makeTree(split[i]);
-            }
-        }
     }
 
-    /**
-     * Method yang akan mengembalikan nilai log2(x)
-     *
-     * @param x nilai input
-     * @return log2(x)
-     */
     public double log2(double x) {
         return Math.log(x) / Math.log(2);
     }
 
-    public boolean equals(double a, double b) {
-        return (a - b < EPSILON) && (b - a < EPSILON);
-    }
+    private double x(Instances data) throws Exception {
+        double entropy = 0.0;
+        HashMap<String, Integer> totalClassAttributes = new HashMap<>();
 
-    private double hitungEntropi(Instances data) throws Exception {
-        double entropi = 0;
-        double[] totalAtributKelas = new double[data.numClasses()];
-        Enumeration cacahInst = data.enumerateInstances();
-        while (cacahInst.hasMoreElements()) {
-            Instance in = (Instance) cacahInst.nextElement();
-            totalAtributKelas[(int) in.classValue()]++;
+        for (int i = 0; i < data.numClasses(); ++i) {
+//            totalClassAttributes.put(data.attribute("2" , 0)
         }
 
-        for (int i = 0; i < data.numClasses(); i++) {
-            if (totalAtributKelas[i] > 0) {
-                double peluang = totalAtributKelas[i] / data.numInstances();
-                entropi -= peluang * log2(peluang);
+        return entropy;
+    }
+
+    private double calculateEntropy(Instances data) throws Exception {
+        double entropy = 0.0;
+        double[] totalClassAttributes = new double[data.numClasses()];
+
+        for (int i = 0; i < totalClassAttributes.length; ++i) {
+            totalClassAttributes[i] = 0.0;
+        }
+
+        Enumeration enumInstance = data.enumerateInstances();
+        while (enumInstance.hasMoreElements()) {
+            Instance in = (Instance) enumInstance.nextElement();
+            totalClassAttributes[(int) in.classValue()]++;
+        }
+
+        for (int i = 0; i < data.numClasses(); ++i) {
+            if (totalClassAttributes[i] > 0) {
+                double prob = totalClassAttributes[i] / data.numInstances();
+                entropy -= prob * log2(prob);
             }
         }
 
-        return entropi;
+        return entropy;
     }
 
-    private double hitungInfoGain(Instances data, Attribute a) throws Exception {
-        double infoGain = hitungEntropi(data);
-        Instances[] split = pisahData(data, a);
+    private double calculateInfoGain(Instances data, Attribute att) throws Exception {
+        double info_gain = calculateEntropy(data);
+        Instances[] split = seperateData(data, att);
 
-        for (int i = 0; i < a.numValues(); i++) {
+        for (int i = 0; i < split.length; ++i) {
             if (split[i].numInstances() > 0) {
-                infoGain -= ((double) split[i].numInstances() / (double) data.numInstances()) * hitungEntropi(split[i]);
-            }
-        }
-        return infoGain;
-    }
-
-    private int indeksMaksimum(double[] array) {
-        double max = array[0];
-        int idx = 0;
-
-        for (int i = 1; i < array.length; i++) {
-            if (array[i] > max) {
-                idx = i;
-                max = array[i];
+                info_gain -= ((double) split[i].numInstances() / (double) data.numInstances()) * calculateEntropy(split[i]);
             }
         }
 
-        return idx;
+        return info_gain;
     }
 
-    private Instances[] pisahData(Instances data, Attribute a) {
-        Instances[] split = new Instances[a.numValues()];
-        for (int i = 0; i < a.numValues(); i++) {
-            split[i] = new Instances(data, data.numInstances());
-        }
+    private Instances[] seperateData(Instances data, Attribute att) throws Exception {
+        Instances[] split = new Instances[att.numValues()];
 
-        Enumeration cacahInstance = data.enumerateAttributes();
-        while (cacahInstance.hasMoreElements()) {
-            Instance in = (Instance) cacahInstance.nextElement();
-            split[(int) in.value(a)].add(in);
-        }
-
-        for (int i = 0; i < split.length; i++) {
-            split[i].compactify();
+        Enumeration enumAttribute = data.enumerateAttributes();
+        while (enumAttribute.hasMoreElements()) {
+            Attribute att_1 = (Attribute) enumAttribute.nextElement();
+//            split.get((int) att_1.value())
         }
 
         return split;
     }
 
-    private void normalisasi(double[] ds) {
-        double sum = 0;
-        for (double d : ds) {
-            sum += d;
-        }
-
-        for (int i = 0; i < ds.length; i++) {
-            ds[i] /= sum;
-        }
-    }
 }

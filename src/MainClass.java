@@ -46,7 +46,7 @@ public class MainClass {
         //random dataset
         train.randomize(new Random(0));
         // 80% split
-        int trainSize = (int) Math.round(train.numInstances() * 80 / 100);
+        int trainSize = (int) Math.round(train.numInstances() * 66 / 100);
         int testSize = train.numInstances() - trainSize;
         train = new Instances(train, 0, trainSize);
         test = new Instances(train, trainSize, testSize);
@@ -91,11 +91,11 @@ public class MainClass {
 
     public static void main(String[] args) throws Exception {
 
-        MyID3 ID3;
+        MyID31 ID3 = new MyID31();
         MyC45 C45;
         j48 = new J48();
         Classifier cls = j48;
-
+//        Classifier cls = ID3;
         preprocessFile("weather.nominal.arff");
         crossValidation(cls, 10);
 
