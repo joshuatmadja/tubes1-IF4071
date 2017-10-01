@@ -96,13 +96,15 @@ public class MainClass {
 
         MyID3 ID3 = new MyID3();
         MyC45 C45 = new MyC45();
+        MyNewC45 C45New = new MyNewC45();
         j48 = new J48();
 //        Classifier cls = j48;
 //        Classifier cls = ID3;
-        Classifier cls = C45;
+//        Classifier cls = C45;
+        Classifier cls = C45New;
         preprocessFile("weather.nominal.arff");
-//        crossValidation(cls, 10);
+        crossValidation(cls, 10);
 //        percentageSplit(cls);
-        trainingTest(cls);
+//        trainingTest(cls);
     }
 }

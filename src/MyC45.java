@@ -20,6 +20,31 @@ public class MyC45 extends AbstractClassifier {
     private Attribute attribute;
     private Attribute classAttribute;
     private double[] att_thresholds;
+    private static Vector<double[]> rules = new Vector<>();
+
+    private void makeRulesRecursive(double[] rule) throws Exception {
+        if (attribute == null) {
+            rules.add(rule);
+        } else {
+            for (int i = 0; i < nodes.length; ++i) {
+
+                double[] new_rule = rule;
+                new_rule[attribute.index()] = ((double) i);
+                nodes[i].makeRulesRecursive(new_rule);
+            }
+        }
+    }
+
+    private void makeRules() throws Exception {
+        for (int i = 0; i < nodes.length; ++i) {
+            double[] rule = new double[10];
+            for (int j = 0; j < rule.length; ++j) {
+                rule[j] = -1;
+            }
+            rule[attribute.index()] = ((double) i);
+            nodes[i].makeRulesRecursive(rule);
+        }
+    }
 
     private double getMostCommonValue(Instances data, Attribute att, Instance in) throws Exception {
         Instances data_label = new Instances(data, data.numInstances());
@@ -48,7 +73,7 @@ public class MyC45 extends AbstractClassifier {
         while (enumInst.hasMoreElements()){
             Instance in = enumInst.nextElement();
             if (in.hasMissingValue()){
-                for (int i = 0; i < in.numAttributes(); ++i){
+                for (int i = 0; i < in.numAttributes(); ++i) {
                     if (in.isMissing(i)){
                         if (in.attribute(i).isNominal()) {
                             in.setValue(i, getMostCommonValue(data, in.attribute(i), in));
@@ -83,6 +108,13 @@ public class MyC45 extends AbstractClassifier {
         att_thresholds = getAttributeThresholds(instances);
 
         makeTree(instances, instances.numAttributes());
+        makeRules();
+//        for (double[] rule : rules) {
+//            for (double d : rule) {
+//                System.out.println(d);
+//            }
+//            System.out.println();
+//        }
     }
 
     @Override
@@ -286,21 +318,14 @@ public class MyC45 extends AbstractClassifier {
             classValue = getMaxIndex(classDistribution);
             classAttribute = data.classAttribute();
         } else {
-//            information_gains = new double[data.numAttributes()];
-//            Enumeration<Attribute> enumAttribute = data.enumerateAttributes();
-//            while (enumAttribute.hasMoreElements()) {
-//                Attribute att = enumAttribute.nextElement();
-//                information_gains[att.index()] = getInformationGain(data, att);
-//            }
-//            attribute = data.attribute(getMaxIndex(information_gains));
-
-            gain_ratios = new double[data.numAttributes()];
+            information_gains = new double[data.numAttributes()];
             Enumeration<Attribute> enumAttribute = data.enumerateAttributes();
             while (enumAttribute.hasMoreElements()) {
                 Attribute att = enumAttribute.nextElement();
-                gain_ratios[att.index()] = getGainRatio(data, att);
+                information_gains[att.index()] = getInformationGain(data, att);
             }
-            attribute = data.attribute(getMaxIndex(gain_ratios));
+            attribute = data.attribute(getMaxIndex(information_gains));
+            System.out.println(getMaxIndex(information_gains));
 
             Instances[] splits = getSplittedData(data, attribute);
             if (attribute.isNumeric()) {
@@ -366,7 +391,7 @@ public class MyC45 extends AbstractClassifier {
         int counter = -1;
         double mean;
         for (int i = 0; i < data.length-1; ++i) {
-            if (counter > 9) {
+            if (counter >= 9) {
                 break;
             }
             if (data[i].classValue() != data[i+1].classValue()) {
