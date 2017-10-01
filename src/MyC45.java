@@ -216,4 +216,29 @@ public class MyC45 extends AbstractClassifier {
             }
         }
     }
+
+    private double getSplitInformation(Instances data, Attribute att) throws Exception {
+        double split_information = 0.0;
+
+
+
+        return split_information;
+
+//        double information_gain = getEntropy(data);
+//        Instances[] splits = getSplittedData(data, att);
+//
+//        for (Instances split: splits) {
+//            if (split.numInstances() > 0) {
+//                information_gain -= ((double) split.numInstances() / (double) data.numInstances()) * getEntropy(split);
+//            }
+//        }
+//
+//        return information_gain;
+    }
+
+    private double getGainRatio(Instances data, Attribute att) throws Exception {
+        double gain_ratio = 0;
+
+        return gain_ratio;
+    }
 }

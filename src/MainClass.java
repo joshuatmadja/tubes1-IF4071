@@ -48,16 +48,19 @@ public class MainClass {
         // 80% split
         int trainSize = (int) Math.round(train.numInstances() * 66 / 100);
         int testSize = train.numInstances() - trainSize;
-        train = new Instances(train, 0, trainSize);
+        Instances train_split = new Instances(train, 0, trainSize);
         test = new Instances(train, trainSize, testSize);
 
-        Evaluation eval = new Evaluation(train);
+        cls.buildClassifier(train_split);
+
+        Evaluation eval = new Evaluation(test);
         eval.evaluateModel(cls, test);
         printEval(eval);
 
     }
 
     public static void trainingTest (Classifier cls) throws Exception{
+        cls.buildClassifier(train);
         Evaluation eval = new Evaluation(train);
         eval.evaluateModel(cls, train);
         printEval(eval);
@@ -94,11 +97,12 @@ public class MainClass {
         MyID3 ID3 = new MyID3();
         MyC45 C45 = new MyC45();
         j48 = new J48();
-//        Classifier cls = j48;
+        Classifier cls = j48;
 //        Classifier cls = ID3;
-        Classifier cls = C45;
+//        Classifier cls = C45;
         preprocessFile("weather.nominal.arff");
-        crossValidation(cls, 10);
-
+//        crossValidation(cls, 10);
+        percentageSplit(cls);
+//        trainingTest(cls);
     }
 }
