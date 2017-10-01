@@ -12,6 +12,7 @@ public class MyC45 extends AbstractClassifier {
     private static final double EPSILON = 1e-6;
     private MyC45[] nodes;
     private double[] information_gains;
+    private double[] gain_ratios;
     private double[] classDistribution;
     private double classValue;
     private Attribute attribute;
@@ -200,6 +201,14 @@ public class MyC45 extends AbstractClassifier {
             }
             attribute = data.attribute(getMaxIndex(information_gains));
 
+//            gain_ratios = new double[data.numAttributes()];
+//            Enumeration<Attribute> enumAttribute = data.enumerateAttributes();
+//            while (enumAttribute.hasMoreElements()) {
+//                Attribute att = enumAttribute.nextElement();
+//                gain_ratios[att.index()] = getGainRatio(data, att);
+//            }
+//            attribute = data.attribute(getMaxIndex(gain_ratios));
+
             Instances[] splits = getSplittedData(data, attribute);
             nodes = new MyC45[attribute.numValues()];
             for (int i = 0; i < attribute.numValues(); ++i) {
@@ -219,25 +228,22 @@ public class MyC45 extends AbstractClassifier {
 
     private double getSplitInformation(Instances data, Attribute att) throws Exception {
         double split_information = 0.0;
+        Instances[] splits = getSplittedData(data, att);
 
-
+        for (Instances split: splits) {
+            if (split.numInstances() > 0) {
+                double peluang = (double) split.numInstances() / (double) data.numInstances();
+                split_information -= peluang * log2(peluang);
+            }
+        }
 
         return split_information;
-
-//        double information_gain = getEntropy(data);
-//        Instances[] splits = getSplittedData(data, att);
-//
-//        for (Instances split: splits) {
-//            if (split.numInstances() > 0) {
-//                information_gain -= ((double) split.numInstances() / (double) data.numInstances()) * getEntropy(split);
-//            }
-//        }
-//
-//        return information_gain;
     }
 
     private double getGainRatio(Instances data, Attribute att) throws Exception {
-        double gain_ratio = 0;
+        double information_gain = getInformationGain(data, att);
+        double split_information = getSplitInformation(data, att);
+        double gain_ratio = information_gain / split_information;
 
         return gain_ratio;
     }
