@@ -327,6 +327,15 @@ public class MyC45 extends AbstractClassifier {
             attribute = data.attribute(getMaxIndex(information_gains));
             System.out.println(getMaxIndex(information_gains));
 
+//            gain_ratios = new double[data.numAttributes()];
+//            Enumeration<Attribute> enumAttribute = data.enumerateAttributes();
+//            while (enumAttribute.hasMoreElements()) {
+//                Attribute att = enumAttribute.nextElement();
+//                gain_ratios[att.index()] = getGainRatio(data, att);
+//            }
+//            attribute = data.attribute(getMaxIndex(gain_ratios));
+//            System.out.println(getMaxIndex(gain_ratios));
+
             Instances[] splits = getSplittedData(data, attribute);
             if (attribute.isNumeric()) {
                 nodes = new MyC45[2];
