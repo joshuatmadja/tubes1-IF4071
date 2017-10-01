@@ -23,13 +23,22 @@ public class MyNewC45  extends AbstractClassifier {
     Attribute[] attributes;
     static Vector<double[]> rules;
     static Vector<Double> accuracies;
+    double[] att_thresholds;
 
     @Override
     public void buildClassifier(Instances instances) throws Exception {
-        getCapabilities().testWithFail(instances);
+        Instances data = getDataWithoutMissingValues(instances);
+        getCapabilities().testWithFail(data);
 
-        instances = new Instances(instances);
+        instances = new Instances(data);
         instances.deleteWithMissingClass();
+
+        att_thresholds = new double[instances.numAttributes()];
+        att_thresholds = getAttributeThresholds(instances);
+
+        for (int i = 0; i < att_thresholds.length; ++i) {
+            System.out.println(att_thresholds[i]);
+        }
 
         attributes = new Attribute[instances.numAttributes() - 1];
         for (int i = 0; i < attributes.length; ++i) {
@@ -73,7 +82,11 @@ public class MyNewC45  extends AbstractClassifier {
         if (attribute == null) {
             return class_distribution;
         } else {
-            return nodes[(int) instance.value(attribute)].distributionForInstance(instance);
+            if (attribute.isNumeric()) {
+                return nodes[((int) getThresholdedValueAttribute(instance, attribute))].distributionForInstance(instance);
+            } else {
+                return nodes[(int) instance.value(attribute)].distributionForInstance(instance);
+            }
         }
     }
 
@@ -118,7 +131,11 @@ public class MyNewC45  extends AbstractClassifier {
             attribute = attributes[getMaxIndex(gain_ratios)];
 
             Instances[] splits = getSplittedData(data, attribute);
-            nodes = new MyNewC45[attribute.numValues()];
+            if (attribute.isNumeric()) {
+                nodes = new MyNewC45[2];
+            } else {
+                nodes = new MyNewC45[attribute.numValues()];
+            }
 
             for (int i = 0; i < attribute.numValues(); ++i) {
                 nodes[i] = new MyNewC45();
@@ -195,19 +212,43 @@ public class MyNewC45  extends AbstractClassifier {
         return (zero == ds.length - 1);
     }
 
+    private double getThresholdedValueAttribute(Instance in, Attribute att) throws Exception {
+//        System.out.print(in.value(att) + " ");
+//        System.out.println(att.index());
+        if (in.value(att) < att_thresholds[att.index()]) {
+            return 0.0;
+        } else {
+            return 1.0;
+        }
+    }
+
     public Instances[] getSplittedData(Instances data, Attribute att) throws Exception {
         Instances[] splits;
 
-        splits = new Instances[att.numValues()];
+        if (att.isNumeric()) {
+            splits = new Instances[2];
 
-        for (int i = 0; i < att.numValues(); ++i) {
-            splits[i] = new Instances(data, data.numInstances());
-        }
+            for (int i = 0; i < 2; ++i) {
+                splits[i] = new Instances(data, data.numInstances());
+            }
 
-        Enumeration<Instance> enumInst = data.enumerateInstances();
-        while (enumInst.hasMoreElements()) {
-            Instance in = enumInst.nextElement();
-            splits[((int) in.value(att))].add(in);
+            Enumeration<Instance> enumInst = data.enumerateInstances();
+            while (enumInst.hasMoreElements()) {
+                Instance in = enumInst.nextElement();
+                splits[((int) getThresholdedValueAttribute(in, att))].add(in);
+            }
+        } else {
+            splits = new Instances[att.numValues()];
+
+            for (int i = 0; i < att.numValues(); ++i) {
+                splits[i] = new Instances(data, data.numInstances());
+            }
+
+            Enumeration<Instance> enumInst = data.enumerateInstances();
+            while (enumInst.hasMoreElements()) {
+                Instance in = enumInst.nextElement();
+                splits[((int) in.value(att))].add(in);
+            }
         }
 
         for (int i = 0; i < splits.length; ++i) {
@@ -336,5 +377,127 @@ public class MyNewC45  extends AbstractClassifier {
         double gain_ratio = information_gain / split_information;
 
         return gain_ratio;
+    }
+
+    private double getMostCommonValue(Instances data, Attribute att, Instance in) throws Exception {
+        Instances data_label = new Instances(data, data.numInstances());
+
+        Enumeration<Instance> enumInst = data.enumerateInstances();
+        while (enumInst.hasMoreElements()) {
+            Instance in_1 = enumInst.nextElement();
+            if ((in.classValue() == in_1.classValue()) && (!in_1.isMissing(att.index()))) {
+                data_label.add(in_1);
+            }
+        }
+        data_label.compactify();
+
+        double[] count_values = new double[att.numValues()];
+        for (int i = 0; i < data_label.numInstances(); ++i) {
+            count_values[((int) data_label.instance(i).value(att))]++;
+        }
+
+        return ((double) getMaxIndex(count_values));
+    }
+
+    private Instances getDataWithoutMissingValues(Instances data) throws Exception {
+        Instances result = new Instances(data, data.numInstances());
+
+        Enumeration<Instance> enumInst = data.enumerateInstances();
+        while (enumInst.hasMoreElements()){
+            Instance in = enumInst.nextElement();
+            if (in.hasMissingValue()){
+                for (int i = 0; i < in.numAttributes(); ++i) {
+                    if (in.isMissing(i)){
+                        if (in.attribute(i).isNominal()) {
+                            in.setValue(i, getMostCommonValue(data, in.attribute(i), in));
+                        } else if (in.attribute(i).isNumeric()){
+                            int sum = 0;
+                            for (int j = 0; j < data.numInstances(); ++j){
+                                if ((in.classValue() == data.instance(j).classValue()) && (!data.instance(j).isMissing(i))) {
+                                    sum += data.instance(j).value(i);
+                                }
+                            }
+                            double mean = sum/data.numInstances();
+                            in.setValue(i, mean);
+                        }
+                    }
+                }
+            }
+            result.add(in);
+        }
+
+        return result;
+    }
+
+    private void sortInstance(Instance[] inst, int index) throws Exception{
+        for (int i = 0; i < inst.length; ++i) {
+            int k = i;
+            for (int j = i+1; j < inst.length; ++j) {
+                if (inst[k].value(index) > inst[j].value(index)) {
+                    k = j;
+                }
+            }
+
+            Instance temp = inst[k];
+            inst[k] = inst[i];
+            inst[i] = temp;
+        }
+    }
+
+    private double[] getCandidateThresholds(Instance[] data, int index) throws Exception{
+        double[] candidate_thresholds = new double[10];
+        int counter = -1;
+        double mean;
+        for (int i = 0; i < data.length-1; ++i) {
+            if (counter >= 9) {
+                break;
+            }
+            if (data[i].classValue() != data[i+1].classValue()) {
+                mean = (data[i].value(index) + data[i].value(index))/2;
+                ++counter;
+                candidate_thresholds[counter] = mean;
+            }
+        }
+
+        return candidate_thresholds;
+    }
+
+    private double getMaxInformationGain(double[] candidate, Instances data, int index) throws Exception {
+        double result = 0.0;
+        double information_gain;
+        double selected_information_gain = 0.0;
+
+        for (int i = 0; i < candidate.length; ++i) {
+            att_thresholds[index] = candidate[i];
+            information_gain = getInformationGain(data, data.attribute(index));
+            if (i == 0){
+                selected_information_gain = information_gain;
+                result = candidate[i];
+            }
+            if (information_gain > selected_information_gain){
+                selected_information_gain = information_gain;
+                result = candidate[i];
+            }
+        }
+
+        return result;
+    }
+
+    private double[] getAttributeThresholds(Instances data) throws Exception {
+        double[] result = new double[data.numAttributes()];
+
+        for (int i = 0; i < data.numAttributes(); ++i) {
+            if (data.attribute(i).isNumeric()) {
+                Instance[] insts = new Instance[data.numInstances()];
+                for (int j = 0; j < data.numInstances(); ++j ){
+                    insts[j] = data.instance(j);
+                }
+                sortInstance(insts, i);
+                double[] candidate_thresholds = getCandidateThresholds(insts, i);
+                result[i] = getMaxInformationGain(candidate_thresholds, data, i);
+            }
+        }
+
+        return result;
     }
 }
