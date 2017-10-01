@@ -101,8 +101,8 @@ public class MainClass {
 //        Classifier cls = ID3;
         Classifier cls = C45;
         preprocessFile("weather.nominal.arff");
-        crossValidation(cls, 10);
+//        crossValidation(cls, 10);
 //        percentageSplit(cls);
-//        trainingTest(cls);
+        trainingTest(cls);
     }
 }
